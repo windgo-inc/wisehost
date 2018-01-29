@@ -14,7 +14,6 @@ function get_emerald () {
 
 function get_wise () {
     git clone https://github.com/windgo-inc/wise.git
-    exit $?
 }
 
 function update_repo () {
@@ -26,8 +25,9 @@ function update_repo () {
 [[ ! -d emerald && ! -d emerald/.git ]] && get_emerald || update_repo emerald
 [[ ! -d wise && ! -d wise/.git ]] && get_wise || {
     update_repo wise
-    cd wise
-    [[ `git status --porcelain --untracked-files=no` ]] && rm -f wise
+    (cd wise && [[ `git status --porcelain --untracked-files=no` ]] && {
+        rm -f wise && echo "Deleted old WISE executable." || echo "No old WISE executable." 
+    })
 }
 
 
