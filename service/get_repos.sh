@@ -24,6 +24,10 @@ function update_repo () {
 }
 
 [[ ! -d emerald && ! -d emerald/.git ]] && get_emerald || update_repo emerald
-[[ ! -d wise && ! -d wise/.git ]] && get_wise || update_repo wise
+[[ ! -d wise && ! -d wise/.git ]] && get_wise || {
+    update_repo wise
+    cd wise
+    [[ `git status --porcelain --untracked-files=no` ]] && rm -f wise
+}
 
 
