@@ -6,7 +6,10 @@ which git || {
 
 [ ! -d emerald ] && {
     git clone https://github.com/windgo-inc/emerald.git
-    (cd emerald && nimble develop) || exit $?
+    cd ~/.nimble/pkgs && rm -rf 'emerald-#head'
+    (cd emerald && nimble develop) || {
+        exit $?
+    }
 }
 
 [ ! -d wise ] && {
