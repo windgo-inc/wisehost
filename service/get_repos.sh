@@ -17,9 +17,13 @@ function get_wise () {
     exit $?
 }
 
-[ ! -d emerald ] && get_emerald
-[ ! -d emerald/.git ] && get_emerald
+function update_repo () {
+    pushd "$1" &>/dev/null
+    git pull origin master
+    popd &>/dev/null
+}
 
-[ ! -d wise ] && get_wise
-[ ! -d wise/.git ] && get_wise
+[[ ! -d emerald && ! -d emerald/.git ]] && get_emerald || update_repo emerald
+[[ ! -d wise && ! -d wise/.git ]] && get_wise || update_repo wise
+
 
