@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+
+###################################
+# WISE server root process script.
+
+REDIS_VERSION='4.0.7'
+NIM_VERSION='0.17.2'
+
+# We presume we are executing in the working directory of the wise server.
+BASE_DIR=`pwd`
+WWW_DIR="$BASE_DIR/www"
+SERVICE_DIR="$BASE_DIR/service"
+WISE_DIR="$SERVICE_DIR/wise"
+
+[ ! -f "${BASE_DIR}"/cached_paths.sh ] && {
+    echo "Bootstrapping..."
+    bash ./bootstrap.sh "$NIM_VERSION" "$REDIS_VERSION" "$BASE_DIR" service bin || {
+        echo "Failed to bootstrap WISE, exit."
+        exit 1
+    }
+    echo "Loading new paths:"
+} || {
+    echo "Found cached paths:"
+}
+
+. cached_paths.sh
+
+echo "nim is at ${NIMC_PATH}"
+echo "nimble is at ${NIMBLE_PATH}"
+echo "redis is at ${REDIS_PATH}"
+
+export PATH="$PATH:$BASE_DIR/bin"
+
+# Ensure that the filesystem directories exist.
+mkdir -p "$WWW_DIR/public"
+mkdir -p "$WWW_DIR/svc"
+
+cd "$WWW_DIR"
+
+# Delete everything except for directories
+rm -f * &> /dev/null
+
+# Delete any essential .git files.
+rm -rf .git*
+
+# Ensure that the WINDGO version of emerald is used
+# and that WISE is available.
+pushd "$SERVICE_DIR"
+    bash get_repos.sh
+popd
+
+# Ensure that the current version of WISE is used.
+pushd "$WISE_DIR"
+    "${NIMBLE_PATH}" install --depsOnly
+    [ -x ./wise ] || {
+        "${NIMC_PATH}" c -d:release --opt:speed --passC:-flto --passL:-flto --implicitStatic:on --parallelBuild:0 wise
+        if [ "$?" != "0" ]; then
+            echo "WISE build failed!"
+            exit 2
+        fi
+    }
+popd
+(cd "$WISE_DIR" && tar --exclude='./nimcache' cf - .) | (cd "$WWW_DIR" && tar xf -)
+
+# Process ID variables.
+REDIS_PID=""
+WISE_PID=""
+
+# Signal traps 
+trap got_sigint INT
+trap got_sigkill KILL
+
+function got_sigint () {
+  echo "*** GOT INTERRUPT SIGNAL"
+  handle_signal
+}
+
+function got_sigkill () {
+  echo "*** GOT KILL SIGNAL"
+  handle_signal
+}
+
+# Shutdown routine
+function handle_signal () {
+  printf "%s" "Abort redis@4.0.6 (proc $REDIS_PID)..."
+  kill "$REDIS_PID"
+  echo "ok"
+  printf "%s" "Abort wise@0.1 (proc $WISE_PID)..."
+  kill "$WISE_PID"
+  echo "ok"
+  echo "goodbye!"
+  exit 1
+}
+
+function anywait () {
+    for pid in "$@"; do
+        while kill -0 "$pid"; do
+            sleep 0.5
+        done
+    done
+}
+
+# Respawn loop
+while true; do
+  "$REDIS_PATH" & REDIS_PID="$!"
+  sleep 1.0
+  echo "Started redis@4.0.6 at $REDIS_PID."
+
+  "$WISE_DIR/wise" & WISE_PID="$!"
+  sleep 0.1
+  echo "Started wise@0.1 at $WISE_PID."
+  echo "The local IPs are"
+  ip addr | grep -Po '(?!(inet 127.\d.\d.1))(inet \K(\d{1,3}\.){3}\d{1,3})' 
+
+  wait -n
+  for f in $PIDS; do
+    if ! kill -0 $f 2> /dev/null; then
+      printf "%s" "Process $f died, "
+    fi
+  done
+
+  #wait
+  echo "restart..."
+done
+
