@@ -82,7 +82,7 @@ function got_sigkill () {
 
 # Shutdown routine
 function handle_signal () {
-  printf "%s" "Abort redis@4.0.6 (proc $REDIS_PID)..."
+  printf "%s" "Abort redis@${REDIS_VERSION} (proc $REDIS_PID)..."
   kill "$REDIS_PID"
   echo "ok"
   printf "%s" "Abort wise@0.1 (proc $WISE_PID)..."
@@ -104,7 +104,7 @@ function anywait () {
 while true; do
   "$REDIS_PATH" & REDIS_PID="$!"
   sleep 1.0
-  echo "Started redis@4.0.6 at $REDIS_PID."
+  echo "Started redis@${REDIS_VERSION} at $REDIS_PID."
 
   "$WISE_DIR/wise" & WISE_PID="$!"
   sleep 0.1
